@@ -1,20 +1,21 @@
 use std::fmt;
 use serde::de::{self};
 #[derive(Clone, Debug, PartialEq)]
-pub enum Value {
+pub enum Value<'a> {
     U64(u64),
+    Array(&'a [u8]),
 }
 
-impl<'de> de::Deserialize<'de> for Value {
+impl<'de> de::Deserialize<'de> for Value<'de> {
     #[inline]
-    fn deserialize<D>(deserializer: D) -> Result<Value, D::Error>
+    fn deserialize<D>(deserializer: D) -> Result<Value<'de>, D::Error>
     where
         D: de::Deserializer<'de>,
     {
         struct ValueVisitor;
 
         impl<'de> de::Visitor<'de> for ValueVisitor {
-            type Value = Value;
+            type Value = Value<'de>;
             fn expecting(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
                 fmt.write_str("any valid CBOR value")
             }
@@ -25,8 +26,9 @@ impl<'de> de::Deserialize<'de> for Value {
                 {
                     Ok(Value::U64(v))
                 }
-
-
+            fn visit_borrowed_bytes<E>(self, v: &'de [u8]) -> Result<Self::Value, E> {
+                    Ok(Value::Array(v))
+            }
         }
 
         deserializer.deserialize_any(ValueVisitor)
@@ -34,7 +36,7 @@ impl<'de> de::Deserialize<'de> for Value {
 }
 
 
-impl Value {
+impl<'a> Value<'a> {
     pub fn as_u64(&self) -> Option<u64> {
         match *self {
             Value::U64(n) => Some(n),
@@ -42,14 +44,23 @@ impl Value {
         }
     }
 }
+
 macro_rules! impl_from {
     ($for_enum:ident, $variant:ident, $for_type:ty) => (
-        impl From<$for_type> for $for_enum {
-            fn from (v: $for_type) -> $for_enum {
+        impl<'a> From<$for_type> for $for_enum<'a> {
+            fn from (v: $for_type) -> $for_enum<'a> {
                 $for_enum::$variant(v.into())
             }
         }
     )
 }
+
 impl_from!(Value, U64, u64);
 impl_from!(Value, U64, u8);
+impl_from!(Value, Array, &'a [u8]);
+
+// impl<'a> From<&[u8]> for Value<'a> {
+//     fn from (v: &[u8]) -> Value<'a> {
+//         $for_enum::$variant(v.into())
+//     }
+// }

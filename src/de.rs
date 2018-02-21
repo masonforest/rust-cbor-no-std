@@ -39,6 +39,12 @@ impl<'de> Deserializer<'de> {
         }
     }
 
+    fn next_n_bytes(&mut self, n: usize) -> &'de [u8] {
+        let (bytes, rest) = self.input.split_at(n);
+        self.input = rest;
+        &bytes
+    }
+
     // fn peek_byte(&mut self) -> Result<u8> {
     //     Ok(*self.input.first().unwrap())
     // }
@@ -47,31 +53,35 @@ impl<'de> Deserializer<'de> {
         unimplemented!()
     }
 
-    fn parse_value(&mut self) -> Result<Value>
+    fn parse_value<V>(&mut self, visitor: V) -> Result<V::Value>
+            where
+        V: de::Visitor<'de>,
     {
         let byte = self.next_byte()?;
         match byte {
-            0x00...0x17 => Ok(byte.into()),
+            0x00...0x17 => visitor.visit_u64(byte.into()),
             0x18 => {
                 let value = self.next_byte()?;
-                Ok(value.into())
-            }
+                visitor.visit_u64(value.into())
+            },
+            0x80...0x97 => {
+                let n = byte as usize - 0x80;
+                let (bytes, rest) = self.input.split_at(n);
+                self.input = rest;
+                visitor.visit_borrowed_bytes(bytes)
+            },
             _ => unreachable!(),
         }
     }
 
+    fn parse_array(&mut self, mut len: usize) -> Result<Value>
+        {
+            Ok(self.next_n_bytes(len).into())
+    }
     fn parse_unsigned<T>(&mut self) -> Result<T>
         where T: AddAssign<T> + MulAssign<T> + From<u8>
     {
-        let byte = self.next_byte()?;
-        match byte {
-            0x00...0x17 => Ok(byte.into()),
-            0x18 => {
-                let value = self.next_byte()?;
-                Ok(value.into())
-            }
-            _ => unreachable!(),
-        }
+        unimplemented!()
     }
 
     fn parse_signed<T>(&mut self) -> Result<T>
@@ -91,10 +101,13 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     fn deserialize_any<V>(self, visitor: V) -> Result<V::Value>
         where V: Visitor<'de>
     {
-        match self.parse_value() {
-            Ok(Value::U64(n)) => visitor.visit_u64(n),
-            Err(e) => Err(e)
-        }
+        self.parse_value(visitor)
+        // match self.parse_value() {
+        //     Ok(Value::U64(n)) => visitor.visit_u64(n),
+        //     // Ok(Value::Array(n)) => visitor.visit_borrowed_bytes(n),
+        //     Err(e) => Err(e),
+        //     _ => Err(Error::Eof),
+        // }
     }
 
     fn deserialize_bool<V>(self, visitor: V) -> Result<V::Value>
@@ -301,6 +314,6 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
 
 #[test]
 fn test_u64() {
-    let expected: Value = Value::U64(42);
-    assert_eq!(expected, from_slice(b"\x18\x2a").unwrap());
+    let expected: Value = Value::Array(&[1, 2, 3]);
+    assert_eq!(expected, from_slice(b"\x83\x01\x02\x03").unwrap());
 }
