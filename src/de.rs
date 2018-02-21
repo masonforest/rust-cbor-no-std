@@ -87,7 +87,7 @@ impl<'de, 'a> Deserializer<'de> {
     }
 
     fn parse_u8(&mut self) -> Result<u8> {
-        if self.peek_byte()? > 17 {
+        if self.peek_byte()? == 0x18 {
             self.skip_byte()?;
         }
 
@@ -334,6 +334,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
 #[test]
 fn test_slice() {
     let expected: Value = Value::Array(&[1, 2, 3]);
+    println!("{:?}", from_slice::<Value>(b"\x83\x01\x02\x03").unwrap());
     assert_eq!(expected, from_slice(b"\x83\x01\x02\x03").unwrap());
 }
 
