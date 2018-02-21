@@ -28,8 +28,8 @@ pub fn from_slice<'a, T>(s: &'a [u8]) -> Result<T>
     }
 }
 
-impl<'de> Deserializer<'de> {
-    fn next_byte(&mut self) -> Result<u8> {
+impl<'de, 'a> Deserializer<'de> {
+    fn read_byte(&mut self) -> Result<u8> {
         match self.input.split_first() {
             Some((byte, rest)) => {
                 self.input = rest;
@@ -56,10 +56,15 @@ impl<'de> Deserializer<'de> {
         }
     }
 
-    fn next_n_bytes(&mut self, n: usize) -> &'de [u8] {
+    fn read_n_bytes(&mut self, n: usize) -> &'de [u8] {
         let (bytes, rest) = self.input.split_at(n);
         self.input = rest;
         &bytes
+    }
+
+    fn parse_array(&mut self) -> Result<&'de [u8]> {
+        let len = self.read_byte()? as usize - 0x80;
+        Ok(self.read_n_bytes(len))
     }
 
     fn parse_bool(&mut self) -> Result<bool> {
@@ -67,30 +72,26 @@ impl<'de> Deserializer<'de> {
     }
 
 
-    fn parse_value<V>(&mut self, visitor: V) -> Result<V::Value>
+    fn parse_value<V>(&'a mut self, visitor: V) -> Result<V::Value>
             where
         V: de::Visitor<'de>,
     {
         let byte = self.peek_byte()?;
-        let value = match byte {
-            0x00...0x17 => {
-                let value = self.next_byte()?;
-                Ok(Value::U64(byte.into()))
-            },
-            0x18 => {
-                self.skip_byte();
-                let value = self.next_byte()?;
-                Ok(Value::U64(value.into()))
-            },
-            0x80...0x97 => {
-                self.skip_byte();
-                let n = byte as usize - 0x80;
-                Ok(Value::Array(self.next_n_bytes(n)))
-            },
+        let value: Value = match byte {
+            0x00...0x18 => self.parse_u8()?.into(),
+            0x80...0x97 => self.parse_array()?.into(),
             _ => unreachable!(),
         };
 
-        self.visit_value(visitor, value?)
+        self.visit_value(visitor, value)
+    }
+
+    fn parse_u8(&mut self) -> Result<u8> {
+        if self.peek_byte()? > 17 {
+            self.skip_byte()?;
+        }
+
+        self.read_byte()
     }
 
     fn visit_value<V>(&mut self, visitor: V, value: Value<'de>) -> Result<V::Value>
@@ -99,14 +100,9 @@ impl<'de> Deserializer<'de> {
         match value {
             Value::U64(n) => visitor.visit_u64(n.into()),
             Value::Array(n) => visitor.visit_borrowed_bytes(n),
-            _ => Err(Error::Eof),
         }
     }
 
-    fn parse_array(&mut self, mut len: usize) -> Result<Value>
-        {
-            Ok(self.next_n_bytes(len).into())
-    }
     fn parse_unsigned<T>(&mut self) -> Result<T>
         where T: AddAssign<T> + MulAssign<T> + From<u8>
     {
@@ -336,7 +332,19 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
 }
 
 #[test]
-fn test_u64() {
+fn test_slice() {
     let expected: Value = Value::Array(&[1, 2, 3]);
     assert_eq!(expected, from_slice(b"\x83\x01\x02\x03").unwrap());
+}
+
+#[test]
+fn test_u8() {
+    let expected: Value = Value::U64(1);
+    assert_eq!(expected, from_slice(b"\x01").unwrap());
+}
+
+#[test]
+fn test_u8_2() {
+    let expected: Value = Value::U64(42);
+    assert_eq!(expected, from_slice(b"\x18\x2a").unwrap());
 }
