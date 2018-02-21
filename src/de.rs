@@ -1,10 +1,10 @@
 use std::ops::{Neg, AddAssign, MulAssign};
 
 
-use serde::de::{self, Deserialize, DeserializeSeed, Visitor, SeqAccess,
-                MapAccess, EnumAccess, VariantAccess, IntoDeserializer};
+use serde::de::{self, Deserialize, Visitor};
 
 use error::{Error, Result};
+use value::Value;
 
 pub struct Deserializer<'de> {
     input: &'de [u8],
@@ -39,20 +39,39 @@ impl<'de> Deserializer<'de> {
         }
     }
 
-    fn peek_byte(&mut self) -> Result<u8> {
-        Ok(*self.input.first().unwrap())
-    }
+    // fn peek_byte(&mut self) -> Result<u8> {
+    //     Ok(*self.input.first().unwrap())
+    // }
 
     fn parse_bool(&mut self) -> Result<bool> {
         unimplemented!()
+    }
+
+    fn parse_value(&mut self) -> Result<Value>
+    {
+        let byte = self.next_byte()?;
+        match byte {
+            0x00...0x17 => Ok(byte.into()),
+            0x18 => {
+                let value = self.next_byte()?;
+                Ok(value.into())
+            }
+            _ => unreachable!(),
+        }
     }
 
     fn parse_unsigned<T>(&mut self) -> Result<T>
         where T: AddAssign<T> + MulAssign<T> + From<u8>
     {
         let byte = self.next_byte()?;
-
-        Ok(byte.into())
+        match byte {
+            0x00...0x17 => Ok(byte.into()),
+            0x18 => {
+                let value = self.next_byte()?;
+                Ok(value.into())
+            }
+            _ => unreachable!(),
+        }
     }
 
     fn parse_signed<T>(&mut self) -> Result<T>
@@ -72,7 +91,10 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     fn deserialize_any<V>(self, visitor: V) -> Result<V::Value>
         where V: Visitor<'de>
     {
-        unimplemented!()
+        match self.parse_value() {
+            Ok(Value::U64(n)) => visitor.visit_u64(n),
+            Err(e) => Err(e)
+        }
     }
 
     fn deserialize_bool<V>(self, visitor: V) -> Result<V::Value>
@@ -159,7 +181,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         self.deserialize_str(visitor)
     }
 
-    fn deserialize_bytes<V>(mut self, visitor: V) -> Result<V::Value>
+    fn deserialize_bytes<V>(self, _visitor: V) -> Result<V::Value>
         where V: Visitor<'de>
     {
         unimplemented!()
@@ -171,13 +193,13 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         unimplemented!()
     }
 
-    fn deserialize_option<V>(self, visitor: V) -> Result<V::Value>
+    fn deserialize_option<V>(self, _visitor: V) -> Result<V::Value>
         where V: Visitor<'de>
     {
         unimplemented!()
     }
 
-    fn deserialize_unit<V>(self, visitor: V) -> Result<V::Value>
+    fn deserialize_unit<V>(self, _visitor: V) -> Result<V::Value>
         where V: Visitor<'de>
     {
         unimplemented!()
@@ -203,7 +225,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         visitor.visit_newtype_struct(self)
     }
 
-    fn deserialize_seq<V>(mut self, visitor: V) -> Result<V::Value>
+    fn deserialize_seq<V>(self, _visitor: V) -> Result<V::Value>
         where V: Visitor<'de>
     {
         unimplemented!()
@@ -230,7 +252,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         self.deserialize_seq(visitor)
     }
 
-    fn deserialize_map<V>(mut self, visitor: V) -> Result<V::Value>
+    fn deserialize_map<V>(self, _visitor: V) -> Result<V::Value>
         where V: Visitor<'de>
     {
         unimplemented!()
@@ -240,7 +262,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         self,
         _name: &'static str,
         _fields: &'static [&'static str],
-        visitor: V
+        _visitor: V
     ) -> Result<V::Value>
         where V: Visitor<'de>
     {
@@ -251,7 +273,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         self,
         _name: &'static str,
         _variants: &'static [&'static str],
-        visitor: V
+        _visitor: V
     ) -> Result<V::Value>
         where V: Visitor<'de>
     {
@@ -277,9 +299,8 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     }
 }
 
-
 #[test]
 fn test_u64() {
-    let expected = 99 as u64;
-    assert_eq!(expected, from_slice(&[99]).unwrap());
+    let expected: Value = Value::U64(42);
+    assert_eq!(expected, from_slice(b"\x18\x2a").unwrap());
 }
