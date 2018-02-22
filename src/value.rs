@@ -1,5 +1,6 @@
-use std::fmt;
+extern crate core;
 use serde::de::{self};
+use self::core::fmt::{Result as FormatterResult, Formatter};
 #[derive(Clone, Debug, PartialEq)]
 pub enum Value<'a> {
     U64(u64),
@@ -16,7 +17,8 @@ impl<'de> de::Deserialize<'de> for Value<'de> {
 
         impl<'de> de::Visitor<'de> for ValueVisitor {
             type Value = Value<'de>;
-            fn expecting(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+
+            fn expecting(&self, fmt: &mut Formatter) -> FormatterResult {
                 fmt.write_str("any valid CBOR value")
             }
             #[inline]

@@ -1,69 +1,51 @@
-use std;
+extern crate core;
+
+#[cfg(feature = "std")]
 use std::fmt::{self, Display};
+#[cfg(not(feature = "std"))]
+use self::core::fmt::{self, Display};
+use serde::{de};
 
-use serde::{ser, de};
-
-pub type Result<T> = std::result::Result<T, Error>;
-
-// This is a bare-bones implementation. A real library would provide additional
-// information in its error type, for example the line and column at which the
-// error occurred, the byte offset into the input, or the current key being
-// processed.
+pub type Result<T> = core::result::Result<T, Error>;
 #[derive(Clone, Debug, PartialEq)]
-pub enum Error {
-    // One or more variants that can be created by data structures through the
-    // `ser::Error` and `de::Error` traits. For example the Serialize impl for
-    // Mutex<T> might return an error because the mutex is poisoned, or the
-    // Deserialize impl for a struct may return an error because a required
-    // field is missing.
-    Message(String),
-
-    // Zero or more variants that can be created directly by the Serializer and
-    // Deserializer without going through `ser::Error` and `de::Error`. These
-    // are specific to the format, in this case JSON.
-    Eof,
-    Syntax,
-    ExpectedBoolean,
-    ExpectedInteger,
-    ExpectedString,
-    ExpectedNull,
-    ExpectedArray,
-    ExpectedArrayComma,
-    ExpectedArrayEnd,
-    ExpectedMap,
-    ExpectedMapColon,
-    ExpectedMapComma,
-    ExpectedMapEnd,
-    ExpectedEnum,
-    TrailingCharacters,
-    EofWhileParsingValue,
+pub struct Error {
+    pub err: ErrorImpl,
 }
 
-impl ser::Error for Error {
-    fn custom<T: Display>(msg: T) -> Self {
-        Error::Message(msg.to_string())
-    }
-}
+#[cfg(any(feature = "std"))]
+type ErrorImpl = Box<str>;
+#[cfg(not(feature = "std"))]
+type ErrorImpl = ();
 
 impl de::Error for Error {
-    fn custom<T: Display>(msg: T) -> Self {
-        Error::Message(msg.to_string())
+    #[cfg(feature = "std")]
+    fn custom<T>(msg: T) -> Self
+    where
+        T: Display,
+    {
+        Error {
+            err: msg.to_string().into_boxed_str(),
+        }
+    }
+
+    #[cfg(not(feature = "std"))]
+    fn custom<T>(msg: T) -> Self
+    where
+        T: Display,
+    {
+        let _ = msg;
+        Error { err: () }
     }
 }
 
 impl Display for Error {
-    fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        formatter.write_str(std::error::Error::description(self))
+    #[cfg(any(feature = "std"))]
+    fn fmt(&self, formatter: &mut fmt::Formatter) -> core::Result<(), fmt::Error> {
+        formatter.write_str(&self.err)
     }
-}
 
-impl std::error::Error for Error {
-    fn description(&self) -> &str {
-        match *self {
-            Error::Message(ref msg) => msg,
-            Error::Eof => "unexpected end of input",
-            /* and so forth */
-            _ => "Unkown error",
-        }
+    #[cfg(not(feature = "std"))]
+    fn fmt(&self, formatter: &mut fmt::Formatter) -> core::result::Result<(), fmt::Error> {
+        formatter.write_str("Serde deserialization error")
     }
 }

@@ -1,6 +1,3 @@
-use std::ops::{Neg, AddAssign, MulAssign};
-
-
 use serde::de::{self, Deserialize, Visitor};
 
 use error::{Error, Result};
@@ -24,7 +21,7 @@ pub fn from_slice<'a, T>(s: &'a [u8]) -> Result<T>
     if deserializer.input.is_empty() {
         Ok(t)
     } else {
-        Err(Error::TrailingCharacters)
+        Err(Error{err: ()})
     }
 }
 
@@ -35,7 +32,7 @@ impl<'de, 'a> Deserializer<'de> {
                 self.input = rest;
                 Ok(*byte)
             }
-            None => Err(Error::Eof)
+            None => Err(Error{err: ()})
         }
     }
 
@@ -45,14 +42,14 @@ impl<'de, 'a> Deserializer<'de> {
                 self.input = rest;
                 Ok(())
             }
-            None => Err(Error::Eof)
+            None => Err(Error{err: ()})
         }
     }
 
     fn peek_byte(&mut self) -> Result<u8> {
         match self.input.first() {
             Some(byte) => Ok(*byte),
-            None => Err(Error::Eof)
+            None => Err(Error{err: ()})
         }
     }
 
@@ -103,15 +100,11 @@ impl<'de, 'a> Deserializer<'de> {
         }
     }
 
-    fn parse_unsigned<T>(&mut self) -> Result<T>
-        where T: AddAssign<T> + MulAssign<T> + From<u8>
-    {
+    fn parse_unsigned<T>(&mut self) -> Result<T> {
         unimplemented!()
     }
 
-    fn parse_signed<T>(&mut self) -> Result<T>
-        where T: Neg<Output = T> + AddAssign<T> + MulAssign<T> + From<i8>
-    {
+    fn parse_signed<T>(&mut self) -> Result<T> {
         unimplemented!()
     }
 
@@ -334,7 +327,6 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
 #[test]
 fn test_slice() {
     let expected: Value = Value::Array(&[1, 2, 3]);
-    println!("{:?}", from_slice::<Value>(b"\x83\x01\x02\x03").unwrap());
     assert_eq!(expected, from_slice(b"\x83\x01\x02\x03").unwrap());
 }
 

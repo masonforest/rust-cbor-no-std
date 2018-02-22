@@ -3,9 +3,16 @@ name = "cbor-no-std"
 version = "0.1.0"
 authors = ["Mason Fischer <mason@kissr.co>"]
 
+[lib]
+crate_type = ["cdylib"]
+
 [dependencies]
-serde = "1.0.27"
+#serde = {version = "1.0.27", default-features = false}
 serde_derive = "1.0"
+
+[dependencies.serde]
+version = "1.0.27"
+default-features = false
 
 [features]
 default = ["no_std"]
