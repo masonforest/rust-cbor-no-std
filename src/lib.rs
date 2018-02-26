@@ -8,6 +8,7 @@ pub mod de;
 pub mod ser;
 pub mod constants;
 mod error;
+mod bytes;
 pub use value::{Value};
 
 #[cfg(all(feature = "no_std", not(test)))]

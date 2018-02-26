@@ -16,11 +16,11 @@ pub enum Value {
 }
 
 impl Serialize for Value {
-    fn serialize<S>(&mut self, serializer: S) where S: Serializer {
+    fn serialize<S>(&mut self, mut serializer: S) where S: Serializer {
         match *self {
-            Value::Int(n) => serializer.serialize_unsigned(n),
+            Value::Int(n) => serializer.serialize_unsigned(n, 0),
+            Value::Array(ref mut array) => serializer.serialize_seq(array),
             _ => unreachable!(),
         }
-        println!("Serializing {:?}", *self);
     }
 }

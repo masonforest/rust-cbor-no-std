@@ -45,19 +45,19 @@ impl<R> Deserializer<R> where R: Reader {
 
 
 #[test]
-fn test_array() {
+fn deserialize_array() {
     let expected: Value = Value::Array(vec![Value::Int(1), Value::Int(2), Value::Int(3)]);
     assert_eq!(expected, from_bytes(vec![131, 1, 2, 3]));
 }
 
 #[test]
-fn test_u8() {
+fn deserialize_u8() {
     let expected: Value = Value::Int(1);
     assert_eq!(expected, from_bytes(vec![1]));
 }
 
 #[test]
-fn test_u8_2() {
+fn deserialize_u8_2() {
     let expected: Value = Value::Int(42);
     assert_eq!(expected, from_bytes(vec![24, 42]));
 }
