@@ -1,11 +1,12 @@
 // use alloc::string::String;
-// use alloc::btree_map::BTreeMap;
+use alloc::btree_map::BTreeMap;
 #[cfg(all(feature = "no_std", not(test)))]
 use core::str;
 #[cfg(any(not(feature = "no_std"), test))]
 use std::str;
 use alloc::vec::Vec;
 use value::Value;
+use bytes::bytes;
 use io::{Reader, VecReader};
 
 pub struct Deserializer<R: Reader>  {
@@ -30,45 +31,63 @@ impl<R> Deserializer<R> where R: Reader {
 
     fn parse_value(&mut self) -> Value
     {
-        let byte = self.reader.peek_byte();
-        match byte {
-            0x00...0x18 => self.parse_u8(),
-            0x40...0x57 => self.parse_bytes(),
-            0x60...0x77 => self.parse_string(),
-            0x80...0x97 => self.parse_array(),
+        let byte = self.reader.read_byte();
+        let major_type = bytes::major_type(byte);
+        let additional_type = self.read_additional_type(bytes::additional_type(byte));
+
+        match major_type {
+            0b000 => self.deserialize_int(additional_type),
+            0b010 => self.deserialize_bytes(additional_type),
+            0b011 => self.deserialize_string(additional_type),
+            0b100 => self.deserialize_array(additional_type),
+            0b101 => self.deserialize_map(additional_type),
             _ => unreachable!(),
         }
     }
 
-    fn parse_bytes(&mut self) -> Value {
-        let len = self.reader.read_byte() as usize - 0x40;
-        let bytes = self.reader.read_n_bytes(len);
-        Value::Bytes(bytes)
-    }
-
-    fn parse_string(&mut self) -> Value {
-        let len = self.reader.read_byte() as usize - 0x60;
-        let bytes = self.reader.read_n_bytes(len);
-
-        match str::from_utf8(&bytes) {
-             Ok(s) => Value::String(s.into()),
-             Err(_) => Value::String("".into())
+    fn read_additional_type(&mut self, additional_type: u8) -> Vec<u8> {
+        match additional_type {
+            0b00000...0b10111 => vec![additional_type],
+            0b11000 => vec![self.reader.read_byte()],
+            _ => unreachable!(),
         }
     }
 
-    fn parse_array(&mut self) -> Value {
-        let len = self.reader.read_byte() as usize - 0x80;
-        let values = (0..len).map(|_| self.parse_value()).collect();
+    fn deserialize_int(&self, bytes: Vec<u8>) -> Value{
+        Value::Int(bytes[0] as u32)
+    }
+
+    fn deserialize_bytes(&mut self, len: Vec<u8>) -> Value{
+        Value::Bytes(self.reader.read_n_bytes(len[0] as usize))
+    }
+
+    fn deserialize_string(&mut self, len: Vec<u8>) -> Value {
+        bytes::to_string(&self.reader.read_n_bytes(len[0] as usize))
+    }
+
+    fn deserialize_array(&mut self, len: Vec<u8>) -> Value {
+        let values = (0..len[0]).map(|_| self.parse_value()).collect();
         Value::Array(values)
     }
 
-    fn parse_u8(&mut self) -> Value {
-        if self.reader.peek_byte() == 0x18 {
-            self.reader.skip_byte();
-        }
+    fn deserialize_map(&mut self, len: Vec<u8>) -> Value {
+        let bytes = self.reader.read_n_bytes(len[0] as usize);
+        let len = self.reader.read_byte() as usize - 0x60;
+        let key = bytes::to_string(&self.reader.read_n_bytes(len));
+        let value = bytes::to_string(&self.reader.read_n_bytes(len));
 
-        Value::Int(self.reader.read_byte().into())
+        let mut test_map = BTreeMap::new();
+        test_map.insert(key, value);
+        Value::Map(test_map)
     }
+}
+
+#[test]
+fn deserialize_map() {
+    let mut test_map = BTreeMap::new();
+    test_map.insert(Value::String("a".into()), Value::String("b".into()));
+    let expected: Value = Value::Map(test_map);
+    assert_eq!(expected, from_bytes(vec![0xa1, 0x61, 0x61, 0x61, 0x62]));
 }
 
 #[test]

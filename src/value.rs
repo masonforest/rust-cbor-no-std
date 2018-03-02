@@ -5,7 +5,7 @@ use alloc::vec::Vec;
 use alloc::btree_map::BTreeMap;
 use ser::{Serializer, Serialize};
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, PartialOrd, Ord, Eq)]
 pub enum Value {
     Int(u32),
     NegativeInt(u32),
