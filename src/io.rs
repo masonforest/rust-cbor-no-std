@@ -1,3 +1,6 @@
+#![cfg(feature = "no_std")]
+use alloc::vec::Vec;
+
 pub trait Writer {
     fn write_byte(&mut self, byte: u8);
     fn write_bytes(&mut self, bytes: Vec<u8>);

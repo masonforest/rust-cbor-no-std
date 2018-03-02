@@ -1,3 +1,9 @@
+// use alloc::string::String;
+// use alloc::btree_map::BTreeMap;
+#[cfg(all(feature = "no_std", not(test)))]
+use core::str;
+#[cfg(any(not(feature = "no_std"), test))]
+use std::str;
 use alloc::vec::Vec;
 use value::Value;
 use io::{Reader, VecReader};
@@ -13,6 +19,10 @@ pub fn from_bytes(bytes: Vec<u8>) -> Value
     d.parse_value()
 }
 
+pub enum TestValue {
+    Int(u64),
+}
+
 impl<R> Deserializer<R> where R: Reader {
     fn from_vec_reader(bytes: R) -> Deserializer<R> {
         Deserializer{reader: bytes}
@@ -23,8 +33,26 @@ impl<R> Deserializer<R> where R: Reader {
         let byte = self.reader.peek_byte();
         match byte {
             0x00...0x18 => self.parse_u8(),
+            0x40...0x57 => self.parse_bytes(),
+            0x60...0x77 => self.parse_string(),
             0x80...0x97 => self.parse_array(),
             _ => unreachable!(),
+        }
+    }
+
+    fn parse_bytes(&mut self) -> Value {
+        let len = self.reader.read_byte() as usize - 0x40;
+        let bytes = self.reader.read_n_bytes(len);
+        Value::Bytes(bytes)
+    }
+
+    fn parse_string(&mut self) -> Value {
+        let len = self.reader.read_byte() as usize - 0x60;
+        let bytes = self.reader.read_n_bytes(len);
+
+        match str::from_utf8(&bytes) {
+             Ok(s) => Value::String(s.into()),
+             Err(_) => Value::String("".into())
         }
     }
 
@@ -43,17 +71,28 @@ impl<R> Deserializer<R> where R: Reader {
     }
 }
 
+#[test]
+fn deserialize_string() {
+    let expected: Value = Value::String("test".into());
+    assert_eq!(expected, from_bytes(vec![0x64, 0x74, 0x65, 0x73, 0x74]));
+}
 
 #[test]
 fn deserialize_array() {
     let expected: Value = Value::Array(vec![Value::Int(1), Value::Int(2), Value::Int(3)]);
-    assert_eq!(expected, from_bytes(vec![131, 1, 2, 3]));
+    assert_eq!(expected, from_bytes(vec![0x83, 0x01, 0x02, 0x03]));
+}
+
+#[test]
+fn deserialize_bytes() {
+    let expected: Value = Value::Bytes(vec![1, 2, 3]);
+    assert_eq!(expected, from_bytes(vec![0x43, 0x01, 0x02, 0x03]));
 }
 
 #[test]
 fn deserialize_u8() {
     let expected: Value = Value::Int(1);
-    assert_eq!(expected, from_bytes(vec![1]));
+    assert_eq!(expected, from_bytes(vec![0x01]));
 }
 
 #[test]
