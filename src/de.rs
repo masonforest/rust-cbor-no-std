@@ -1,9 +1,4 @@
-// use alloc::string::String;
 use alloc::btree_map::BTreeMap;
-#[cfg(all(feature = "no_std", not(test)))]
-use core::str;
-#[cfg(any(not(feature = "no_std"), test))]
-use std::str;
 use alloc::vec::Vec;
 use value::Value;
 use bytes::bytes;
@@ -31,9 +26,9 @@ impl<R> Deserializer<R> where R: Reader {
 
     fn parse_value(&mut self) -> Value
     {
-        let byte = self.reader.read_byte();
-        let major_type = bytes::major_type(byte);
-        let additional_type = self.read_additional_type(bytes::additional_type(byte));
+        let header_byte = self.reader.read_byte();
+        let major_type = bytes::major_type(header_byte);
+        let additional_type = self.read_additional_type(bytes::additional_type(header_byte));
 
         match major_type {
             0b000 => self.deserialize_int(additional_type),
@@ -45,49 +40,52 @@ impl<R> Deserializer<R> where R: Reader {
         }
     }
 
-    fn read_additional_type(&mut self, additional_type: u8) -> Vec<u8> {
+    fn read_additional_type(&mut self, additional_type: u8) -> usize {
         match additional_type {
-            0b00000...0b10111 => vec![additional_type],
-            0b11000 => vec![self.reader.read_byte()],
+            0b00000...0b10111 => additional_type as usize,
+            0b11000 => self.reader.read_byte() as usize,
             _ => unreachable!(),
         }
     }
 
-    fn deserialize_int(&self, bytes: Vec<u8>) -> Value{
-        Value::Int(bytes[0] as u32)
+    fn deserialize_int(&self, value: usize) -> Value{
+        Value::Int(value as u32)
     }
 
-    fn deserialize_bytes(&mut self, len: Vec<u8>) -> Value{
-        Value::Bytes(self.reader.read_n_bytes(len[0] as usize))
+    fn deserialize_bytes(&mut self, len: usize) -> Value{
+        Value::Bytes(self.reader.read_n_bytes(len as usize))
     }
 
-    fn deserialize_string(&mut self, len: Vec<u8>) -> Value {
-        bytes::to_string(&self.reader.read_n_bytes(len[0] as usize))
+    fn deserialize_string(&mut self, len: usize) -> Value {
+        bytes::to_string(&self.reader.read_n_bytes(len as usize))
     }
 
-    fn deserialize_array(&mut self, len: Vec<u8>) -> Value {
-        let values = (0..len[0]).map(|_| self.parse_value()).collect();
+    fn deserialize_array(&mut self, len: usize) -> Value {
+        let values = (0..len).map(|_| self.parse_value()).collect();
         Value::Array(values)
     }
 
-    fn deserialize_map(&mut self, len: Vec<u8>) -> Value {
-        let bytes = self.reader.read_n_bytes(len[0] as usize);
-        let len = self.reader.read_byte() as usize - 0x60;
-        let key = bytes::to_string(&self.reader.read_n_bytes(len));
-        let value = bytes::to_string(&self.reader.read_n_bytes(len));
+    fn deserialize_map(&mut self, len: usize) -> Value {
+        let mut map = BTreeMap::new();
 
-        let mut test_map = BTreeMap::new();
-        test_map.insert(key, value);
-        Value::Map(test_map)
+        for _ in 0..len {
+            let key = self.parse_value();
+            let value = self.parse_value();
+
+            map.insert(key, value);
+        }
+
+        Value::Map(map)
     }
 }
 
 #[test]
 fn deserialize_map() {
     let mut test_map = BTreeMap::new();
-    test_map.insert(Value::String("a".into()), Value::String("b".into()));
+    test_map.insert(Value::String("key1".into()), Value::String("value1".into()));
+    test_map.insert(Value::String("key2".into()), Value::String("value2".into()));
     let expected: Value = Value::Map(test_map);
-    assert_eq!(expected, from_bytes(vec![0xa1, 0x61, 0x61, 0x61, 0x62]));
+    assert_eq!(expected, from_bytes(vec![0xa2, 0x64, 0x6b, 0x65, 0x79, 0x31, 0x66, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x31, 0x64, 0x6b, 0x65, 0x79, 0x32, 0x66, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x32]));
 }
 
 #[test]
