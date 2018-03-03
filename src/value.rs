@@ -13,7 +13,7 @@ pub enum Value {
     Bytes(Vec<u8>),
     Text(String),
     Array(Vec<Value>),
-    Map(BTreeMap<Value, Value>),
+    Map(BTreeMap<String, Value>),
 }
 
 impl Serialize for Value {
@@ -83,7 +83,7 @@ impl Value {
         }
     }
 
-    pub fn as_map(&self) -> Option<&BTreeMap<Value, Value>> {
+    pub fn as_map(&self) -> Option<&BTreeMap<String, Value>> {
         if let Value::Map(ref v) = *self {
             Some(v)
         } else {
@@ -91,7 +91,7 @@ impl Value {
         }
     }
 
-    pub fn as_map_mut(&mut self) -> Option<&BTreeMap<Value, Value>> {
+    pub fn as_map_mut(&mut self) -> Option<&BTreeMap<String, Value>> {
         if let Value::Map(ref mut v) = *self {
             Some(v)
         } else {

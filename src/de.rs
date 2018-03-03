@@ -69,7 +69,7 @@ impl<R> Deserializer<R> where R: Reader {
         let mut map = BTreeMap::new();
 
         for _ in 0..len {
-            let key = self.parse_value();
+            let key = self.parse_value().as_string().unwrap().clone();
             let value = self.parse_value();
 
             map.insert(key, value);
@@ -82,8 +82,8 @@ impl<R> Deserializer<R> where R: Reader {
 #[test]
 fn deserialize_map() {
     let mut test_map = BTreeMap::new();
-    test_map.insert(Value::String("key1".into()), Value::String("value1".into()));
-    test_map.insert(Value::String("key2".into()), Value::String("value2".into()));
+    test_map.insert("key1".into(), Value::String("value1".into()));
+    test_map.insert("key2".into(), Value::String("value2".into()));
     let expected: Value = Value::Map(test_map);
     assert_eq!(expected, from_bytes(vec![0xa2, 0x64, 0x6b, 0x65, 0x79, 0x31, 0x66, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x31, 0x64, 0x6b, 0x65, 0x79, 0x32, 0x66, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x32]));
 }
