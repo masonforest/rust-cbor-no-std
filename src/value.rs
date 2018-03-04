@@ -7,6 +7,7 @@ use ser::{Serializer, Serialize};
 
 #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Clone)]
 pub enum Value {
+    Null,
     Int(u32),
     NegativeInt(u32),
     String(String),
@@ -17,11 +18,25 @@ pub enum Value {
 }
 
 impl Serialize for Value {
-    fn serialize<S>(&mut self, mut serializer: S) where S: Serializer {
+    fn serialize<S>(&mut self, serializer: &mut S) where S: Serializer {
         match *self {
-            Value::Int(n) => serializer.serialize_unsigned(n, 0),
+            Value::Int(n) => serializer.serialize_unsigned(n as usize, 0),
             Value::Bytes(ref bytes) => serializer.serialize_bytes(bytes.to_vec()),
-            Value::Array(ref mut array) => serializer.serialize_seq(array),
+            Value::String(ref string) => serializer.serialize_string(string),
+            Value::Array(ref mut array) => {
+                serializer.serialize_seq(array.len());
+
+                for value in array {
+                    value.serialize(serializer);
+                }
+            },
+            Value::Map(ref mut map) => {
+                serializer.serialize_map(map.len());
+                for(key, value) in map {
+                    serializer.serialize_string(key);
+                    value.serialize(serializer);
+                }
+            },
             _ => unreachable!(),
         }
     }
