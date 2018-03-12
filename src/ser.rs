@@ -6,6 +6,10 @@ use bytes::bytes;
 use alloc::vec::Vec;
 use value::{Value};
 use io::{Writer, VecWriter};
+#[cfg(test)]
+use std::mem::transmute;
+#[cfg(not(test))]
+use core::mem::transmute;
 
 pub trait Serializer {
     fn serialize_unsigned(&mut self, n: usize, major_type: u8);
@@ -44,12 +48,38 @@ impl<'a> VecSerializer<'a> {
 
     fn encode_unsigned(&mut self, n: usize, major_type: u8) -> Vec<u8> {
         match n {
+            n @ 0 ... MAX_U8  => self.encode_u8(n, major_type),
+            n @ MIN_U16 ... MAX_U16 => self.encode_u16(n, major_type),
+            n @ MIN_U32 ... MAX_U32 => self.encode_u32(n, major_type),
+            _ => unreachable!()
+        }
+    }
+
+    fn encode_u8(&self, value: usize, major_type: u8) -> Vec<u8> {
+        match value {
             n @ 0 ... 23 => vec![bytes::concat(major_type, n as u8)],
             n @ 24 ... MAX_U8 => vec![bytes::concat(major_type, 24), n as u8],
             _ => unreachable!()
         }
     }
 
+    fn encode_u16(&self, value: usize, major_type: u8) -> Vec<u8> {
+        let mut header = vec![bytes::concat(major_type, 25)];
+        let mut value: Vec<u8> = unsafe {
+            transmute::<u16, [u8; 2]>((value as u16).to_be()).to_vec()
+        };
+        header.append(&mut value);
+        header
+    }
+
+    fn encode_u32(&self, value: usize, major_type: u8) -> Vec<u8> {
+        let mut header = vec![bytes::concat(major_type, 26)];
+        let mut value: Vec<u8> = unsafe {
+            transmute::<u32, [u8; 4]>((value as u32).to_be()).to_vec()
+        };
+        header.append(&mut value);
+        header
+    }
 }
 
 impl<'a> Serializer for VecSerializer<'a> {
@@ -99,6 +129,18 @@ fn serialize_array() {
 fn serialize_string() {
     let value = Value::String("test".into());
     assert_eq!(vec![0x64, 0x74, 0x65, 0x73, 0x74], to_bytes(value));
+}
+
+#[test]
+fn serialize_u16() {
+    let value = Value::Int(0x100);
+    assert_eq!(vec![25, 1, 0], to_bytes(value));
+}
+
+#[test]
+fn serialize_u32() {
+    let value = Value::Int(0x1000000);
+    assert_eq!(vec![26, 1, 0, 0, 0], to_bytes(value));
 }
 
 #[test]

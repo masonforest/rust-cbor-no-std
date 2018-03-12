@@ -4,6 +4,11 @@ use value::Value;
 use bytes::bytes;
 use io::{Reader, VecReader};
 
+#[cfg(test)]
+use std::mem::transmute;
+#[cfg(not(test))]
+use core::mem::transmute;
+
 pub struct Deserializer<R: Reader>  {
     pub reader: R,
 }
@@ -19,6 +24,21 @@ pub enum TestValue {
     Int(u64),
 }
 
+#[inline]
+fn u8_slice_to_u16(slice: &[u8]) -> u16 {
+        ((slice[0] as u16) & 0xff) << 8 |
+        ((slice[1] as u16) & 0xff)
+}
+
+#[inline]
+fn u8_slice_to_u32(slice: &[u8]) -> u32 {
+        ((slice[0] as u32) & 0xff) << 24 |
+        ((slice[1] as u32) & 0xff) << 16 |
+        ((slice[2] as u32) & 0xff) << 8 |
+        ((slice[3] as u32) & 0xff)
+}
+
+
 impl<R> Deserializer<R> where R: Reader {
     fn from_vec_reader(bytes: R) -> Deserializer<R> {
         Deserializer{reader: bytes}
@@ -28,7 +48,7 @@ impl<R> Deserializer<R> where R: Reader {
     {
         let header_byte = self.reader.read_byte();
         let major_type = bytes::major_type(header_byte);
-        let additional_type = self.read_additional_type(bytes::additional_type(header_byte));
+        let additional_type = bytes::additional_type(header_byte) as usize;
 
         match major_type {
             0b000 => self.deserialize_int(additional_type),
@@ -49,8 +69,28 @@ impl<R> Deserializer<R> where R: Reader {
         }
     }
 
-    fn deserialize_int(&self, value: usize) -> Value{
-        Value::Int(value as u32)
+    fn deserialize_int(&mut self, additional_type: usize) -> Value{
+        match additional_type {
+            value @ 0b00000...0b10111 => Value::Int(value as u32),
+            0b11000 => self.read_u8(),
+            0b11001 => self.read_u16(),
+            0b11010 => self.read_u32(),
+            _ => unreachable!(),
+        }
+    }
+
+    fn read_u8(&mut self) -> Value{
+        Value::Int(self.reader.read_byte() as u32)
+    }
+
+    fn read_u16(&mut self) -> Value{
+        let bytes = self.reader.read_n_bytes(2);
+        Value::Int(u8_slice_to_u16(bytes.as_slice()) as u32)
+    }
+
+    fn read_u32(&mut self) -> Value{
+        let bytes = self.reader.read_n_bytes(4);
+        Value::Int(u8_slice_to_u32(bytes.as_slice()) as u32)
     }
 
     fn deserialize_bytes(&mut self, len: usize) -> Value{
@@ -124,6 +164,18 @@ fn deserialize_u8() {
 fn deserialize_u8_2() {
     let expected: Value = Value::Int(42);
     assert_eq!(expected, from_bytes(vec![24, 42]));
+}
+
+#[test]
+fn deserialize_u16() {
+    let expected: Value = Value::Int(0x100);
+    assert_eq!(expected, from_bytes(vec![25, 1, 0]));
+}
+
+#[test]
+fn deserialize_u32() {
+    let expected: Value = Value::Int(0x1000000);
+    assert_eq!(expected, from_bytes(vec![26, 1, 0, 0, 0]));
 }
 
 #[test]
