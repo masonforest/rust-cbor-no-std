@@ -37,6 +37,7 @@ impl Serialize for Value {
                     value.serialize(serializer);
                 }
             },
+            Value::Null => serializer.serialize_simple(22),
             _ => unreachable!(),
         }
     }

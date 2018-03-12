@@ -36,6 +36,7 @@ impl<R> Deserializer<R> where R: Reader {
             0b011 => self.deserialize_string(additional_type),
             0b100 => self.deserialize_array(additional_type),
             0b101 => self.deserialize_map(additional_type),
+            0b111 => self.deserialize_simple(additional_type),
             _ => unreachable!(),
         }
     }
@@ -77,6 +78,13 @@ impl<R> Deserializer<R> where R: Reader {
 
         Value::Map(map)
     }
+
+    fn deserialize_simple(&mut self, value: usize) -> Value {
+        match value {
+            22 => Value::Null,
+            _ => unreachable!(),
+        }
+    }
 }
 
 #[test]
@@ -116,4 +124,10 @@ fn deserialize_u8() {
 fn deserialize_u8_2() {
     let expected: Value = Value::Int(42);
     assert_eq!(expected, from_bytes(vec![24, 42]));
+}
+
+#[test]
+fn deserialize_null() {
+    let expected: Value = Value::Null;
+    assert_eq!(expected, from_bytes(vec![246]));
 }

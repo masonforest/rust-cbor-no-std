@@ -12,6 +12,7 @@ pub trait Serializer {
     fn serialize_bytes(&mut self, bytes: Vec<u8>);
     fn serialize_seq(&mut self, len: usize);
     fn serialize_map(&mut self, len: usize);
+    fn serialize_simple(&mut self, value: usize);
     fn serialize_string(&mut self, string: &String);
 }
 
@@ -73,6 +74,10 @@ impl<'a> Serializer for VecSerializer<'a> {
     fn serialize_map(&mut self, len: usize) {
         self.serialize_unsigned(len, 0b101);
     }
+
+    fn serialize_simple(&mut self, value: usize) {
+        self.serialize_unsigned(value, 0b111);
+    }
 }
 
 #[test]
@@ -106,4 +111,10 @@ fn serialize_u8() {
 fn serialize_u8_2() {
     let value = Value::Int(42);
     assert_eq!(vec![24, 42], to_bytes(value));
+}
+
+#[test]
+fn serialize_null() {
+    let value = Value::Null;
+    assert_eq!(vec![246], to_bytes(value));
 }
