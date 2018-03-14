@@ -48,9 +48,9 @@ impl<'a> VecSerializer<'a> {
 
     fn encode_unsigned(&mut self, n: usize, major_type: u8) -> Vec<u8> {
         match n {
-            n @ 0 ... MAX_U8  => self.encode_u8(n, major_type),
-            n @ MIN_U16 ... MAX_U16 => self.encode_u16(n, major_type),
-            n @ MIN_U32 ... MAX_U32 => self.encode_u32(n, major_type),
+            n if n < MAX_U8  => self.encode_u8(n, major_type),
+            n if n < MAX_U16 => self.encode_u16(n, major_type),
+            n if n < MAX_U32 => self.encode_u32(n, major_type),
             _ => unreachable!()
         }
     }

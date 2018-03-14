@@ -115,3 +115,21 @@ impl Value {
         }
     }
 }
+
+impl From<()> for Value {
+    fn from(_value: ()) -> Value {
+        Value::Null
+    }
+}
+
+impl From<u32> for Value {
+    fn from(value: u32) -> Value {
+        Value::Int(value)
+    }
+}
+
+impl From<Vec<u8>> for Value {
+    fn from(value: Vec<u8>) -> Value {
+        Value::Bytes(value)
+    }
+}

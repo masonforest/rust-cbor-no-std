@@ -4,11 +4,6 @@ use value::Value;
 use bytes::bytes;
 use io::{Reader, VecReader};
 
-#[cfg(test)]
-use std::mem::transmute;
-#[cfg(not(test))]
-use core::mem::transmute;
-
 pub struct Deserializer<R: Reader>  {
     pub reader: R,
 }
@@ -57,14 +52,6 @@ impl<R> Deserializer<R> where R: Reader {
             0b100 => self.deserialize_array(additional_type),
             0b101 => self.deserialize_map(additional_type),
             0b111 => self.deserialize_simple(additional_type),
-            _ => unreachable!(),
-        }
-    }
-
-    fn read_additional_type(&mut self, additional_type: u8) -> usize {
-        match additional_type {
-            0b00000...0b10111 => additional_type as usize,
-            0b11000 => self.reader.read_byte() as usize,
             _ => unreachable!(),
         }
     }
