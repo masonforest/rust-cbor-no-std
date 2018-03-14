@@ -89,6 +89,7 @@ impl<'a> Serializer for VecSerializer<'a> {
     }
 
     fn serialize_bytes(&mut self, bytes: Vec<u8>) {
+        self.serialize_unsigned(bytes.len(), 0b010);
         self.writer.write_bytes(bytes);
     }
 

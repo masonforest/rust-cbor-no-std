@@ -69,9 +69,13 @@ impl<R> Deserializer<R> where R: Reader {
         }
     }
 
-    fn deserialize_int(&mut self, additional_type: usize) -> Value{
+    fn deserialize_int(&mut self, additional_type: usize) -> Value {
+        Value::Int(self.read_int(additional_type) as u32)
+    }
+
+    fn read_int(&mut self, additional_type: usize) -> usize {
         match additional_type {
-            value @ 0b00000...0b10111 => Value::Int(value as u32),
+            value @ 0b00000...0b10111 => value,
             0b11000 => self.read_u8(),
             0b11001 => self.read_u16(),
             0b11010 => self.read_u32(),
@@ -79,21 +83,22 @@ impl<R> Deserializer<R> where R: Reader {
         }
     }
 
-    fn read_u8(&mut self) -> Value{
-        Value::Int(self.reader.read_byte() as u32)
+    fn read_u8(&mut self) ->  usize{
+        self.reader.read_byte() as usize
     }
 
-    fn read_u16(&mut self) -> Value{
+    fn read_u16(&mut self) -> usize {
         let bytes = self.reader.read_n_bytes(2);
-        Value::Int(u8_slice_to_u16(bytes.as_slice()) as u32)
+        u8_slice_to_u16(bytes.as_slice()) as usize
     }
 
-    fn read_u32(&mut self) -> Value{
+    fn read_u32(&mut self) -> usize {
         let bytes = self.reader.read_n_bytes(4);
-        Value::Int(u8_slice_to_u32(bytes.as_slice()) as u32)
+        u8_slice_to_u32(bytes.as_slice()) as usize
     }
 
-    fn deserialize_bytes(&mut self, len: usize) -> Value{
+    fn deserialize_bytes(&mut self, additional_type: usize) -> Value{
+        let len = self.read_int(additional_type);
         Value::Bytes(self.reader.read_n_bytes(len as usize))
     }
 
@@ -101,7 +106,8 @@ impl<R> Deserializer<R> where R: Reader {
         bytes::to_string(&self.reader.read_n_bytes(len as usize))
     }
 
-    fn deserialize_array(&mut self, len: usize) -> Value {
+    fn deserialize_array(&mut self, additional_type: usize) -> Value {
+        let len = self.read_int(additional_type);
         let values = (0..len).map(|_| self.parse_value()).collect();
         Value::Array(values)
     }
@@ -152,6 +158,15 @@ fn deserialize_array() {
 fn deserialize_bytes() {
     let expected: Value = Value::Bytes(vec![1, 2, 3]);
     assert_eq!(expected, from_bytes(vec![0x43, 0x01, 0x02, 0x03]));
+}
+
+#[test]
+fn deserialize_bytes_2() {
+    let mut range = (0..32).collect::<Vec<u8>>();
+    let expected: Value = Value::Bytes(range.clone());
+    let mut bytes_prefix = vec![0x58, 0x20];
+    bytes_prefix.append(&mut range);
+    assert_eq!(expected, from_bytes(bytes_prefix));
 }
 
 #[test]
