@@ -1,13 +1,6 @@
 [package]
-description = "cbor-no-std is a CBOR Deserializer for Rust which runs in a no_std environment."
+description = "Deprecated: Please use [Rust CBOR Lite](https://crates.io/crates/cbor_lite) or [serde_cbor](https://crates.io/crates/serde_cbor)"
 license = "MIT"
 name = "cbor-no-std"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Mason Fischer <mason@kissr.co>"]
-
-[profile.release]
-opt-level = 'z'
-
-[features]
-default = ["no_std"]
-no_std = []
