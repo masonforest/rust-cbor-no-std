@@ -1,4 +1,4 @@
-use alloc::btree_map::BTreeMap;
+use alloc::collections::btree_map::BTreeMap;
 use alloc::vec::Vec;
 use value::Value;
 use bytes::bytes;
@@ -57,7 +57,7 @@ impl<R> Deserializer<R> where R: Reader {
     }
 
     fn deserialize_int(&mut self, additional_type: usize) -> Value {
-        Value::Int(self.read_int(additional_type) as u32)
+        Value::Int(self.read_int(additional_type) as u64)
     }
 
     fn read_int(&mut self, additional_type: usize) -> usize {

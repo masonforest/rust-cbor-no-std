@@ -2,7 +2,7 @@
 description = "cbor-no-std is a CBOR Deserializer for Rust which runs in a no_std environment."
 license = "MIT"
 name = "cbor-no-std"
-version = "0.1.0"
+version = "0.3.0"
 authors = ["Mason Fischer <mason@kissr.co>"]
 
 [profile.release]

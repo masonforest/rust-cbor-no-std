@@ -2,14 +2,14 @@ extern crate core;
 extern crate alloc;
 use alloc::string::String;
 use alloc::vec::Vec;
-use alloc::btree_map::BTreeMap;
+use alloc::collections::btree_map::BTreeMap;
 use ser::{Serializer, Serialize};
 
 #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Clone)]
 pub enum Value {
     Null,
-    Int(u32),
-    NegativeInt(u32),
+    Int(u64),
+    NegativeInt(u64),
     String(String),
     Bytes(Vec<u8>),
     Text(String),
@@ -20,7 +20,7 @@ pub enum Value {
 impl Serialize for Value {
     fn serialize<S>(&mut self, serializer: &mut S) where S: Serializer {
         match *self {
-            Value::Int(n) => serializer.serialize_unsigned(n as usize, 0),
+            Value::Int(n) => serializer.serialize_unsigned(n as u64, 0),
             Value::Bytes(ref bytes) => serializer.serialize_bytes(bytes.to_vec()),
             Value::String(ref string) => serializer.serialize_string(string),
             Value::Array(ref mut array) => {
@@ -92,7 +92,7 @@ impl Value {
         }
     }
 
-    pub fn as_int(&self) -> Option<u32> {
+    pub fn as_int(&self) -> Option<u64> {
         match *self {
             Value::Int(n) => Some(n),
             _ => None,
@@ -124,7 +124,7 @@ impl From<()> for Value {
 
 impl From<u32> for Value {
     fn from(value: u32) -> Value {
-        Value::Int(value)
+        Value::Int(value as u64)
     }
 }
 
