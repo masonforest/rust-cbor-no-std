@@ -103,7 +103,7 @@ impl<R> Deserializer<R> where R: Reader {
         let mut map = BTreeMap::new();
 
         for _ in 0..len {
-            let key = self.parse_value().as_bytes().unwrap().to_vec();
+            let key = self.parse_value();
             let value = self.parse_value();
 
             map.insert(key, value);
