@@ -14,7 +14,7 @@ pub enum Value {
     Bytes(Vec<u8>),
     Text(String),
     Array(Vec<Value>),
-    Map(BTreeMap<String, Value>),
+    Map(BTreeMap<Vec<u8>, Value>),
 }
 
 impl Serialize for Value {
@@ -33,7 +33,7 @@ impl Serialize for Value {
             Value::Map(ref mut map) => {
                 serializer.serialize_map(map.len());
                 for(key, value) in map {
-                    serializer.serialize_string(key);
+                    serializer.serialize_bytes(key.to_vec());
                     value.serialize(serializer);
                 }
             },
@@ -99,7 +99,7 @@ impl Value {
         }
     }
 
-    pub fn as_map(&self) -> Option<&BTreeMap<String, Value>> {
+    pub fn as_map(&self) -> Option<&BTreeMap<Vec<u8>, Value>> {
         if let Value::Map(ref v) = *self {
             Some(v)
         } else {
@@ -107,7 +107,7 @@ impl Value {
         }
     }
 
-    pub fn as_map_mut(&mut self) -> Option<&BTreeMap<String, Value>> {
+    pub fn as_map_mut(&mut self) -> Option<&BTreeMap<Vec<u8>, Value>> {
         if let Value::Map(ref mut v) = *self {
             Some(v)
         } else {
@@ -128,8 +128,20 @@ impl From<u32> for Value {
     }
 }
 
+impl From<u64> for Value {
+    fn from(value: u64) -> Value {
+        Value::Int(value as u64)
+    }
+}
+
 impl From<Vec<u8>> for Value {
     fn from(value: Vec<u8>) -> Value {
         Value::Bytes(value)
+    }
+}
+
+impl From<BTreeMap<Vec<u8>, Value>> for Value {
+    fn from(map: BTreeMap<Vec<u8>, Value>) -> Value {
+        Value::Map(map)
     }
 }
